@@ -16,9 +16,16 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.github.nkzawa.socketio.androidchat.event.OnNewMessage;
+import com.github.nkzawa.socketio.androidchat.event.OnUserJoined;
+import com.github.nkzawa.socketio.androidchat.event.OnUserLeft;
+import com.squareup.otto.Subscribe;
+
 import io.socket.emitter.Emitter;
 import io.socket.client.IO;
 import io.socket.client.Socket;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -44,6 +51,7 @@ public class MainFragment extends Fragment {
     private Handler mTypingHandler = new Handler();
     private String mUsername;
     private Socket mSocket;
+
     {
         try {
             mSocket = IO.socket(Constants.CHAT_SERVER_URL);
@@ -67,7 +75,6 @@ public class MainFragment extends Fragment {
         super.onCreate(savedInstanceState);
 
         setHasOptionsMenu(true);
-
         mSocket.on(Socket.EVENT_CONNECT_ERROR, onConnectError);
         mSocket.on(Socket.EVENT_CONNECT_TIMEOUT, onConnectError);
         mSocket.on("new message", onNewMessage);
@@ -273,6 +280,20 @@ public class MainFragment extends Fragment {
         }
     };
 
+    @Subscribe
+    public void onNewMessage(final OnNewMessage event) {
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                String username = event.getUsername();
+                String message = event.getMessage();
+                removeTyping(username);
+                addMessage(username, message);
+            }
+        });
+
+    }
+
     private Emitter.Listener onNewMessage = new Emitter.Listener() {
         @Override
         public void call(final Object... args) {
@@ -295,6 +316,18 @@ public class MainFragment extends Fragment {
             });
         }
     };
+    @Subscribe
+    public void onUserJoined(final OnUserJoined event){
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                int numUsers = event.getNumUsers();
+                String username = event.getUsername();
+                addLog(getResources().getString(R.string.message_user_joined, username));
+                addParticipantsLog(numUsers);
+            }
+        };
+    }
 
     private Emitter.Listener onUserJoined = new Emitter.Listener() {
         @Override
@@ -318,6 +351,20 @@ public class MainFragment extends Fragment {
             });
         }
     };
+    @Subscribe
+    public void onUserLeft(final OnUserLeft event){
+        getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                String username = event.getUsername();
+                int numUsers = event.getNumUsers();
+                addLog(getResources().getString(R.string.message_user_left, username));
+                addParticipantsLog(numUsers);
+                removeTyping(username);
+            }
+        });
+
+    }
 
     private Emitter.Listener onUserLeft = new Emitter.Listener() {
         @Override
